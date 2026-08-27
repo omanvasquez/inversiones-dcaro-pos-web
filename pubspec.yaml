@@ -40,6 +40,9 @@ dependencies:
   cloud_firestore: ^6.3.0
   provider: ^6.1.5+1
   intl: ^0.20.2
+  pdf: ^3.11.3
+  printing: ^5.14.3
+  flutter_svg: ^2.0.17
 
 dev_dependencies:
   flutter_test:
@@ -62,6 +65,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - web/assets/dcaro_logo.svg
 
   # To add assets to your application, add an assets section, like this:
   # assets:
