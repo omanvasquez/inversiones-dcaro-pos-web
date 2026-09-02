@@ -1,12 +1,12 @@
 {
-    "name": "inversiones_dcaro_pos",
-    "short_name": "inversiones_dcaro_pos",
+    "name": "Inversiones D'Caro - POS",
+    "short_name": "D'Caro POS",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#0A2E50",
+    "theme_color": "#0A2E50",
+    "description": "Sistema de Punto de Venta e Inventario para Inversiones D'Caro",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
