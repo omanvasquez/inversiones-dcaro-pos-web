@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/release
 hosting.*.cache
 .firebase/
+
+# Security and Credentials
+*.env
+*.env.*
+*serviceAccountKey*.json
+*service-account*.json
+*.pem
+*.key
+google-services.json
+GoogleService-Info.plist
