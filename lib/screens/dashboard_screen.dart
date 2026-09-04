@@ -23,67 +23,100 @@ class DashboardScreen extends StatelessWidget {
             .collection('sales')
             .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
             .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+        builder: (context, salesSnapshot) {
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('expenses')
+                .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+                .snapshots(),
+            builder: (context, expSnapshot) {
+              if (salesSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          final sales = snapshot.data?.docs ?? [];
-          double totalUSD = 0;
-          for (final s in sales) {
-            totalUSD += (s.data()['totalUSD'] as num?)?.toDouble() ?? 0;
-          }
-          final double totalBs = totalUSD * tasa;
+              final sales = salesSnapshot.data?.docs ?? [];
+              double totalUSD = 0;
+              for (final s in sales) {
+                totalUSD += (s.data()['totalUSD'] as num?)?.toDouble() ?? 0;
+              }
+              final double totalBs = totalUSD * tasa;
 
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 650;
+              final expenses = expSnapshot.data?.docs ?? [];
+              double totalGastosUSD = 0;
+              for (final e in expenses) {
+                totalGastosUSD += (e.data()['montoUSD'] as num?)?.toDouble() ?? 0;
+              }
+              final double totalGastosBs = totalGastosUSD * tasa;
+              final double gananciaNetaUSD = totalUSD - totalGastosUSD;
+              final double gananciaNetaBs = gananciaNetaUSD * tasa;
 
-              return ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Text(
-                    'Resumen del Día',
-                    style: TextStyle(
-                      fontSize: isNarrow ? 20 : 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryDark,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 650;
+
+                  return ListView(
+                    padding: const EdgeInsets.all(16),
                     children: [
-                      _buildMetricCard(
-                        context,
-                        title: 'Ventas de Hoy',
-                        value: '\$${totalUSD.toStringAsFixed(2)}',
-                        subtitle: 'Bs ${totalBs.toStringAsFixed(2)}',
-                        icon: Icons.attach_money,
-                        color: AppColors.secondary,
-                        width: isNarrow ? double.infinity : (constraints.maxWidth - 44) / 2,
+                      Text(
+                        'Resumen del Día',
+                        style: TextStyle(
+                          fontSize: isNarrow ? 20 : 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryDark,
+                        ),
                       ),
-                      _buildMetricCard(
-                        context,
-                        title: 'Transacciones',
-                        value: '${sales.length}',
-                        subtitle: 'Ventas registradas',
-                        icon: Icons.receipt_long,
-                        color: AppColors.primary,
-                        width: isNarrow ? double.infinity : (constraints.maxWidth - 44) / 2,
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          _buildMetricCard(
+                            context,
+                            title: 'Ventas de Hoy',
+                            value: '\$${totalUSD.toStringAsFixed(2)}',
+                            subtitle: 'Bs ${totalBs.toStringAsFixed(2)}',
+                            icon: Icons.attach_money,
+                            color: AppColors.secondary,
+                            width: isNarrow ? double.infinity : (constraints.maxWidth - 44) / 2,
+                          ),
+                          _buildMetricCard(
+                            context,
+                            title: 'Gastos de Hoy',
+                            value: '-\$${totalGastosUSD.toStringAsFixed(2)}',
+                            subtitle: 'Bs ${totalGastosBs.toStringAsFixed(2)}',
+                            icon: Icons.trending_down,
+                            color: AppColors.danger,
+                            width: isNarrow ? double.infinity : (constraints.maxWidth - 44) / 2,
+                          ),
+                          _buildMetricCard(
+                            context,
+                            title: 'Ganancia Neta de Hoy',
+                            value: '\$${gananciaNetaUSD.toStringAsFixed(2)}',
+                            subtitle: 'Bs ${gananciaNetaBs.toStringAsFixed(2)}',
+                            icon: Icons.account_balance_wallet,
+                            color: gananciaNetaUSD >= 0 ? AppColors.secondary : AppColors.danger,
+                            width: isNarrow ? double.infinity : (constraints.maxWidth - 44) / 2,
+                          ),
+                          _buildMetricCard(
+                            context,
+                            title: 'Transacciones',
+                            value: '${sales.length}',
+                            subtitle: 'Ventas registradas',
+                            icon: Icons.receipt_long,
+                            color: AppColors.primary,
+                            width: isNarrow ? double.infinity : (constraints.maxWidth - 44) / 2,
+                          ),
+                          _buildMetricCard(
+                            context,
+                            title: 'Tasa BCV',
+                            value: '$tasa Bs/\$',
+                            subtitle: 'Tasa oficial configurada',
+                            icon: Icons.currency_exchange,
+                            color: AppColors.accent,
+                            width: isNarrow ? double.infinity : (constraints.maxWidth - 44) / 2,
+                          ),
+                        ],
                       ),
-                      _buildMetricCard(
-                        context,
-                        title: 'Tasa BCV',
-                        value: '$tasa Bs/\$',
-                        subtitle: 'Tasa oficial configurada',
-                        icon: Icons.currency_exchange,
-                        color: AppColors.accent,
-                        width: isNarrow ? double.infinity : (constraints.maxWidth - 44) / 2,
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 24),
                   Text(
                     'Últimas Ventas de Hoy',
@@ -133,9 +166,11 @@ class DashboardScreen extends StatelessWidget {
             },
           );
         },
-      ),
-    );
-  }
+      );
+    },
+  ),
+);
+}
 
   Widget _buildMetricCard(
     BuildContext context, {

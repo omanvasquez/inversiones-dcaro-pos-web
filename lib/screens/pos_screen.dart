@@ -8,6 +8,7 @@ import '../services/config_service.dart';
 import '../services/product_service.dart';
 import '../services/sale_service.dart';
 import '../services/closure_service.dart';
+import '../services/report_service.dart';
 import '../models/product.dart';
 import '../models/sale.dart';
 import '../theme/app_theme.dart';
@@ -97,12 +98,67 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Future<void> _cerrarDia() async {
+    final cfg = context.read<ConfigService>();
+    final tasa = cfg.tasaBCV == 0 ? 780.0 : cfg.tasaBCV;
+
+    ReportData? summary;
+    try {
+      summary = await _closureService.getDaySummary(DateTime.now(), tasa);
+    } catch (_) {}
+
+    if (!mounted) return;
+
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Cierre de Caja Diario'),
-        content: const Text(
-          '¿Deseas generar y guardar el cierre de ventas del día de hoy?',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '¿Deseas generar y guardar el cierre de caja del día de hoy?',
+              style: TextStyle(fontSize: 14),
+            ),
+            if (summary != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  children: [
+                    _resumenFila(
+                      'Ventas de Hoy:',
+                      '\$${summary.totalVentasUSD.toStringAsFixed(2)} (${summary.totalTransacciones} ventas)',
+                    ),
+                    const SizedBox(height: 4),
+                    _resumenFila(
+                      'Gastos del Día:',
+                      '-\$${summary.totalGastosUSD.toStringAsFixed(2)}',
+                      color: summary.totalGastosUSD > 0 ? AppColors.danger : null,
+                    ),
+                    const SizedBox(height: 4),
+                    _resumenFila(
+                      'Compras del Día:',
+                      '-\$${summary.totalComprasUSD.toStringAsFixed(2)}',
+                      color: summary.totalComprasUSD > 0 ? AppColors.warning : null,
+                    ),
+                    const Divider(height: 12),
+                    _resumenFila(
+                      'Ganancia Neta:',
+                      '\$${summary.gananciaNetaUSD.toStringAsFixed(2)}',
+                      bold: true,
+                      color: summary.gananciaNetaUSD >= 0 ? AppColors.secondary : AppColors.danger,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(
@@ -111,7 +167,7 @@ class _PosScreenState extends State<PosScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Guardar Cierre'),
+            child: const Text('Confirmar y Guardar'),
           ),
         ],
       ),
@@ -120,7 +176,7 @@ class _PosScreenState extends State<PosScreen> {
     if (confirmado != true) return;
 
     try {
-      await _closureService.closeDay(DateTime.now());
+      await _closureService.closeDay(DateTime.now(), tasaBCV: tasa);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -139,6 +195,30 @@ class _PosScreenState extends State<PosScreen> {
         );
       }
     }
+  }
+
+  Widget _resumenFila(String label, String value, {bool bold = false, Color? color}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+            color: color ?? AppColors.primaryDark,
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _cobrar(double tasa) async {

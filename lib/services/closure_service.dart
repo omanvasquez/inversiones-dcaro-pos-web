@@ -1,42 +1,49 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'report_service.dart';
 
 class ClosureService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final ReportService _reportService = ReportService();
 
-  Future<void> closeDay(DateTime date) async {
+  Future<ReportData> getDaySummary(DateTime date, double tasaBCV) async {
     final startOfDay = DateTime(date.year, date.month, date.day, 0, 0, 0);
     final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
+    return _reportService.getReport(start: startOfDay, end: endOfDay, tasaBCV: tasaBCV);
+  }
 
-    final snapshot = await _db
-        .collection('sales')
-        .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-        .where('fecha', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
-        .get();
-
-    double totalUSD = 0;
-    double totalBs = 0;
-    final Map<String, double> porMetodo = {};
-
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      final usd = (data['totalUSD'] as num?)?.toDouble() ?? 0;
-      final bs = (data['totalBs'] as num?)?.toDouble() ?? 0;
-      final metodo = (data['metodoPago'] as String?) ?? 'otro';
-
-      totalUSD += usd;
-      totalBs += bs;
-      porMetodo[metodo] = (porMetodo[metodo] ?? 0) + usd;
-    }
-
+  Future<void> closeDay(DateTime date, {double tasaBCV = 780.0}) async {
+    final report = await getDaySummary(date, tasaBCV);
     final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+    final Map<String, dynamic> productosMap = {};
+    for (final p in report.productosVendidos) {
+      productosMap[p.nombre] = {
+        'cantidad': p.cantidad,
+        'totalUSD': p.totalUSD,
+      };
+    }
 
     final closureData = {
       'fecha': Timestamp.fromDate(date),
       'dateKey': dateKey,
-      'totalUSD': totalUSD,
-      'totalBs': totalBs,
-      'cantidadVentas': snapshot.docs.length,
-      'porMetodo': porMetodo,
+      'totalUSD': report.totalVentasUSD,
+      'totalBs': report.totalVentasBs,
+      'cantidadVentas': report.totalTransacciones,
+      'transacciones': report.totalTransacciones,
+      'porMetodo': report.ventasPorMetodo,
+      'metodosPagoUSD': report.ventasPorMetodo,
+      'totalCostoVentasUSD': report.totalCostoVentasUSD,
+      'gananciaUSD': report.gananciaBrutaUSD,
+      'gananciaBrutaUSD': report.gananciaBrutaUSD,
+      'gastosUSD': report.totalGastosUSD,
+      'gastosBs': report.totalGastosBs,
+      'comprasUSD': report.totalComprasUSD,
+      'comprasBs': report.totalComprasBs,
+      'egresosUSD': report.totalGastosUSD + report.totalComprasUSD,
+      'egresosBs': report.totalGastosBs + report.totalComprasBs,
+      'gananciaNetaUSD': report.gananciaNetaUSD,
+      'balanceNetoUSD': report.gananciaNetaUSD,
+      'productosVendidos': productosMap,
       'cerradoEn': FieldValue.serverTimestamp(),
     };
 
@@ -45,6 +52,6 @@ class ClosureService {
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> streamCierres() {
-    return _db.collection('closures').orderBy('fecha', descending: true).limit(30).snapshots();
+    return _db.collection('cierres_diarios').orderBy('fecha', descending: true).limit(30).snapshots();
   }
 }
