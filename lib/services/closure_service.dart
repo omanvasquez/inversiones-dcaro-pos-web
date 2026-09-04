@@ -30,7 +30,7 @@ class ClosureService {
 
     final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-    await _db.collection('closures').doc(dateKey).set({
+    final closureData = {
       'fecha': Timestamp.fromDate(date),
       'dateKey': dateKey,
       'totalUSD': totalUSD,
@@ -38,7 +38,10 @@ class ClosureService {
       'cantidadVentas': snapshot.docs.length,
       'porMetodo': porMetodo,
       'cerradoEn': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    };
+
+    await _db.collection('closures').doc(dateKey).set(closureData, SetOptions(merge: true));
+    await _db.collection('cierres_diarios').doc(dateKey).set(closureData, SetOptions(merge: true));
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> streamCierres() {

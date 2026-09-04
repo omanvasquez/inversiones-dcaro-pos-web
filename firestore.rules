@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+        : null;
+    }
+
+    function isOwner() {
+      return isAuth() && (
+        request.auth.token.email in ["omanjrvasquez@gmail.com", "inversionesdcaro@gmail.com"] ||
+        (getUserData() != null && (
+          (getUserData().role in ["owner", "superadmin", "duena"]) ||
+          (getUserData().rol in ["owner", "superadmin", "duena"])
+        ))
+      );
+    }
+
+    function isCashier() {
+      return isAuth() && (
+        isOwner() ||
+        (getUserData() == null) ||
+        (getUserData().role in ["cashier", "caja", "owner", "superadmin", "duena"]) ||
+        (getUserData().rol in ["cashier", "caja", "owner", "superadmin", "duena"])
+      );
+    }
+
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.auth.uid == userId;
+      allow update: if isOwner() || request.auth.uid == userId;
+      allow delete: if isOwner();
+    }
+
+    match /dollar_rates/{docId} {
+      allow read: if isAuth();
+      allow write: if isCashier();
+    }
+
+    match /config/{docId} {
+      allow read: if isAuth();
+      allow write: if isCashier();
+    }
+
+    match /products/{productId} {
+      allow read: if isAuth();
+      allow create, update: if isCashier();
+      allow delete: if isOwner();
+    }
+
+    match /sales/{id} {
+      allow read, create: if isAuth();
+      allow update, delete: if isOwner();
+    }
+
+    match /purchases/{id} {
+      allow read, create: if isAuth();
+      allow update, delete: if isOwner();
+    }
+
+    match /expenses/{id} {
+      allow read, create: if isAuth();
+      allow update, delete: if isOwner();
+    }
+
+    match /cierres_diarios/{id} {
+      allow read, create, update: if isCashier();
+      allow delete: if isOwner();
+    }
+
+    match /closures/{id} {
+      allow read, create, update: if isCashier();
+      allow delete: if isOwner();
+    }
+
+    match /clients/{id} {
+      allow read, create, update: if isCashier();
+      allow delete: if isOwner();
+    }
+  }
+}
